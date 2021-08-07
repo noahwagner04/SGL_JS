@@ -1,200 +1,267 @@
-// create some screen data object 
-var canvas;
-var context;
-var screenBuffer;
+(function(SGL) {
+	var scenes = [];
+	var lastFrameTime = 0;
+	var downKeys = {};
 
-function createCanvas(w, h) {
-	canvas = document.createElement("canvas");
-	canvas.id = "myCanvas";
-	canvas.width = w;
-	canvas.height = h;
-	context = canvas.getContext("2d");
-	canvas.onmousemove = mouseMoveCanvas;
-	screenBuffer = new ImageData(canvas.width, canvas.height);
-	document.body.appendChild(canvas);
-}
+	var numToMouse = {
+		0: "left",
+		1: "middle",
+		2: "right",
+		3: "extra1",
+		4: "extra2"
+	};
 
-function getScreenBuffer() {
-	if (!canvas) return;
-	return context.getImageData(0, 0, canvas.width, canvas.height).data;
-}
+	SGL.mouseTypes = {
+		left: 0,
+		middle: 1,
+		right: 2,
+		extra1: 3,
+		extra2: 4
+	};
 
-function setScreenBuffer(buffer, x = 0, y = 0, dx = 0, dy = 0, dw, dh) {
-	if (!canvas) return;
-	let newImageData = new ImageData(buffer, canvas.width);
-	dw = dw || canvas.width;
-	dh = dh || canvas.height;
-	context.putImageData(newImageData, x, y, dx, dy, dw, dh);
-}
+	var downMouse = {};
 
-// relies on the provided image to be fully loaded (should run in a .then statment after loadImage func)
-function getPixelBuffer(image) {
-	let tempCanvas = document.createElement("canvas");
-	let ctx = tempCanvas.getContext("2d");
+	var mousePressedCallbacks = [];
 
-	tempCanvas.width = image.width;
-	tempCanvas.height = image.height;
+	var mouseReleasedCallbacks = [];
 
-	ctx.drawImage(image, 0, 0, image.width, image.height)
-	return ctx.getImageData(0, 0, image.width, image.height).data;
-}
+	var mouseWheelCallbacks = [];
 
-// user manually assigns the resolve with their variable of choosing in a .then() statment (also a good place to put getPixelBuffer func)
-function loadImage(path, width, height) {
-	return new Promise((resolve, reject) => {
-		let image;
-		image = new Image();
-		if (width) image.width = width;
-		if (height) image.height = height;
+	var keyPressedCallbacks = [];
 
-		image.onload = function() {
-			resolve(image);
-		}
+	var keyReleasedCallbacks = [];
 
-		image.onerror = function(e) {
-			reject(`${e.type}: Loading image with path ${path}`);
-		}
-		image.src = path;
-	});
-}
+	var updateCallbacks = [];
 
-var FPS = 0;
-var frameDelay = 0;
-var lastFrameTime = 0;
-// create some event object / keyboard / mouse object
-var downKeys = {};
+	SGL.FPS = 0;
+	SGL.frameDelay = 0;
 
-var mouseIsPressed = false;
-var numToMouse = {
-	0: "left",
-	1: "middle",
-	2: "right",
-	3: "extra1",
-	4: "extra2"
-};
+	SGL.mouseIsPressed = false;
 
-var mouseTypes = {
-	left: 0,
-	middle: 1,
-	right: 2,
-	extra1: 3,
-	extra2: 4
-};
+	SGL.mouseX = 0;
+	SGL.mouseY = 0;
 
-var downMouse = {};
+	SGL.mouseLocation;
 
-var mouseInCanvas = false;
-
-var mouseX = 0;
-var mouseY = 0;
-
-var mouseCanvasX = 0;
-var mouseCanvasY = 0;
-
-// function mouseInCanvas() {
-// 	if(!canvas) return;
-// 	let rect = canvas.getBoundingClientRect();
-// 	if(mouseX > rect.left && mouseX < rect.right && mouseY > rect.top && mouseY < rect.bottom) return true;
-// 	return false;
-// }
-
-function mouseMoveWindow(e) {
-	mouseX = e.pageX;
-	mouseY = e.pageY;
-	if (canvas && e.target === canvas) mouseInCanvas = true;
-	else mouseInCanvas = false;
-}
-
-function mouseMoveCanvas(e) {
-	mouseCanvasX = e.offsetX;
-	mouseCanvasY = e.offsetY;
-}
-
-function mouseDown(e) {
-	let userPressed = window.mousePressed;
-	if (!downMouse[numToMouse[e.button]] && typeof userPressed === "function") userPressed(e);
-	downMouse[numToMouse[e.button]] = true;
-	mouseIsPressed = true;
-}
-
-function mouseUp(e) {
-	let userReleased = window.mouseReleased;
-	if (typeof mouseReleased === "function") mouseReleased(e);
-	delete downMouse[numToMouse[e.button]];
-	mouseIsPressed = false;
-}
-
-function mouseIsDown(str) {
-	let keys = Object.keys(downMouse);
-	if (keys === undefined) return;
-	return keys.includes(str);
-}
-
-function keyDown(e) {
-	let userPressed = window.keyPressed;
-	if (!downKeys[e.key] && typeof userPressed === "function") userPressed(e);
-	downKeys[e.key] = true;
-}
-
-function keyUp(e) {
-	delete downKeys[e.key];
-	let keyReleased = window.keyReleased;
-	if (typeof keyReleased === "function") keyReleased(e);
-}
-
-window.onkeydown = keyDown;
-window.onkeyup = keyUp;
-window.onmousedown = mouseDown;
-window.onmouseup = mouseUp;
-window.onmousemove = mouseMoveWindow;
-window.onwheel = window.mouseWheel;
-
-async function _update() {
-	let now = performance.now();
-	FPS = 1000.0 / (now - lastFrameTime);
-	lastFrameTime = now;
-	if (frameDelay > 0) {
-		await new Promise(r => setTimeout(r, frameDelay * 1000));
-	}
-	if (canvas) context.clearRect(0, 0, canvas.width, canvas.height);
-	let userDraw = window.draw;
-	if (typeof userDraw === "function") userDraw();
-	window.requestAnimationFrame(_update);
-}
-
-function _run() {
-	let isPreload = typeof window.preload === "function" ? true : false;
-	let isStart = typeof window.start === "function" ? true : false;
-	let p;
-	if(isPreload) {
-		p = window.preload();
-		if(!(p instanceof Promise)) {
-			console.log("preload function must return a Promise");
+	SGL.mouseIsDown = function(str) {
+		if (typeof str !== "string") {
+			console.log("SGL.mouseIsDown must recieve a string, but instead recieved " + str);
 			return;
 		}
+		var keys = Object.keys(downMouse);
+		if (keys === undefined) return;
+		return keys.includes(str);
 	}
-	if (isPreload && isStart) {
-		p.then((result) => window.start(result)).then(_update);
-	} else if (isPreload && !isStart) {
-		p.then((result) => window._update(result));
-	} else if (!isPreload && isStart) {
-		window.start();
-		window._update();
-	} else {
-		window._update();
-	}
-}
 
-if (document.readyState === "complete") {
-	_run();
-} else {
-	window.onload = function() {
-		_run();
+	function mouseDown(e) {
+		mousePressedCallbacks.forEach(callback => callback(e));
+		downMouse[numToMouse[e.button]] = true;
+		mouseIsPressed = true;
 	}
-}
+	window.addEventListener("mousedown", (e) => mouseDown.call(SGL, e));
 
-function keyIsDown(key) {
-	let keys = Object.keys(downKeys);
-	if (keys === undefined) return;
-	return keys.includes(key);
-}
+	function mouseUp(e) {
+		mouseReleasedCallbacks.forEach(callback => callback(e));
+		delete downMouse[numToMouse[e.button]];
+		mouseIsPressed = false;
+	}
+	window.addEventListener("mouseup", (e) => mouseUp.call(SGL, e));
+
+	function mouseMoveWindow(e) {
+		this.mouseX = e.pageX;
+		this.mouseY = e.pageY;
+		this.mouseLocation = e.target;
+	}
+	window.addEventListener("mousemove", (e) => mouseMoveWindow.call(SGL, e));
+
+	function wheel(e) {
+		mouseWheelCallbacks.forEach(callback => callback(e));
+	}
+	window.addEventListener("wheel", (e) => wheel.call(SGL, e));
+
+	SGL.keyIsDown = function(key) {
+		if (typeof key !== "string" || (typeof key === "string" && key.length !== 1)) {
+			console.log("SGL.keyIsDown must recieve a string of length one, but instead recieved " + key);
+			return;
+		}
+		let keys = Object.keys(downKeys);
+		if (keys === undefined) return;
+		return keys.includes(key);
+	}
+
+	function keyDown(e) {
+		if (!downKeys[e.key]) {
+			keyPressedCallbacks.forEach(callback => callback(e));
+		}
+		downKeys[e.key] = true;
+	}
+	window.addEventListener("keydown", (e) => keyDown.call(SGL, e));
+
+	function keyUp(e) {
+		delete downKeys[e.key];
+		keyReleasedCallbacks.forEach(callback => callback(e));
+	}
+	window.addEventListener("keyup", (e) => keyUp.call(SGL, e));
+
+	// user manually assigns the resolve with their variable of choosing in a .then() statment (also a good place to put getPixelBuffer func)
+	SGL.loadImage = function(path, width, height) {
+		if (typeof path !== "string") {
+			console.log("image source must be a string");
+		}
+		return new Promise((resolve, reject) => {
+			let image;
+			image = new Image();
+			if (width) image.width = width;
+			if (height) image.height = height;
+
+			image.onload = function() {
+				resolve(image);
+			}
+
+			image.onerror = function(e) {
+				reject(`${e.type}: Loading image with path ${path}`);
+			}
+			image.src = path;
+		});
+	}
+
+	// relies on the provided image to be fully loaded (should run in a .then statment after loadImage func)
+	SGL.getPixelBuffer = function(image) {
+		if (!(image instanceof HTMLImageElement)) {
+			console.log("SGL.getPixelBuffer must recieve a loaded image, but instead got " + image);
+			return;
+		}
+		let tempCanvas = document.createElement("canvas");
+		let ctx = tempCanvas.getContext("2d");
+
+		tempCanvas.width = image.width;
+		tempCanvas.height = image.height;
+
+		ctx.drawImage(image, 0, 0, image.width, image.height)
+		return ctx.getImageData(0, 0, image.width, image.height).data;
+	}
+
+	async function update() {
+		let now = performance.now();
+		SGL.FPS = 1000.0 / (now - lastFrameTime);
+		lastFrameTime = now;
+		if (SGL.frameDelay > 0) {
+			await new Promise(r => setTimeout(r, SGL.frameDelay * 1000));
+		}
+		scenes.forEach(scene => scene.renderer.clearRect(0, 0, scene.canvas.width, scene.canvas.height));
+		updateCallbacks.forEach(callback => callback());
+		window.requestAnimationFrame(update);
+	}
+	update();
+
+	SGL.addEventListener = function(type, callback) {
+		if (typeof callback !== "function") {
+			console.log("SGL.addEventListener must recieve a function, but instead recieved " + callback);
+			return;
+		}
+		switch (type) {
+			case "mousepressed":
+				mousePressedCallbacks.push(callback);
+				break;
+			case "mousereleased":
+				mouseReleasedCallbacks.push(callback);
+				break;
+			case "wheel":
+				mouseWheelCallbacks.push(callback);
+				break;
+			case "keypressed":
+				keyPressedCallbacks.push(callback);
+				break;
+			case "keyreleased":
+				keyReleasedCallbacks.push(callback);
+				break;
+			case "update":
+				updateCallbacks.push(callback);
+				break;
+			default:
+				console.log("event type: " + type + " does not exist");
+		}
+	}
+
+	SGL.removeEventListener = function(type, callback) {
+		if (typeof callback !== "function") {
+			console.log("SGL.removeEventListener must recieve a function, but instead recieved " + callback);
+			return;
+		}
+		switch (type) {
+			case "mousepressed":
+				let mousePressedIndex = mousePressedCallbacks.indexOf(callback);
+				if (mousePressedIndex === -1) break;
+				mousePressedCallbacks.splice(mousePressedIndex, 1);
+				break;
+			case "mousereleased":
+				let mouseReleasedIndex = mouseReleasedCallbacks.indexOf(callback);
+				if (mouseReleasedIndex === -1) break;
+				mouseReleasedCallbacks.splice(mouseReleasedIndex, 1);
+				break;
+			case "wheel":
+				let wheelIndex = mouseWheelCallbacks.indexOf(callback);
+				if (wheelIndex === -1) break;
+				mouseWheelCallbacks.splice(wheelIndex, 1);
+				break;
+			case "keypressed":
+				let keyPressedIndex = keyPressedCallbacks.indexOf(callback);
+				if (keyPressedIndex === -1) break;
+				keyPressedCallbacks.splice(keyPressedIndex, 1);
+				break;
+			case "keyreleased":
+				let keyReleasedIndex = keyReleasedCallbacks.indexOf(callback);
+				if (keyReleasedIndex === -1) break;
+				keyReleasedCallbacks.splice(keyReleasedIndex, 1);
+				break;
+			case "update":
+				let updateIndex = updateCallbacks.indexOf(callback);
+				if (updateIndex === -1) break;
+				updateCallbacks.splice(updateIndex, 1);
+				break;
+			default:
+				console.log("event type: " + type + " does not exist");
+		}
+	}
+
+	function mouseMoveScene(e) {
+		this.mouseX = e.offsetX;
+		this.mouseY = e.offsetY;
+	}
+
+	SGL.Scene = function(id, width, height) {
+		this.canvas = document.createElement("canvas");
+
+		if (id) this.canvas.id = id;
+		if (width) this.canvas.width = width;
+		if (height) this.canvas.height = height;
+
+		this.renderer = this.canvas.getContext("2d");
+
+		this.mouseX;
+		this.mouseY;
+
+		this.canvas.addEventListener("mousemove", (e) => mouseMoveScene.call(this, e));
+
+		scenes.push(this);
+	}
+
+	SGL.Scene.prototype.getScreenBuffer = function() {
+		return this.renderer.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
+	}
+
+	SGL.Scene.prototype.setScreenBuffer = function(buffer, x = 0, y = 0, dx = 0, dy = 0, dw, dh) {
+		var newImageData = new ImageData(buffer, this.canvas.width);
+		dw = dw || this.canvas.width;
+		dh = dh || this.canvas.height;
+		this.renderer.putImageData(newImageData, x, y, dx, dy, dw, dh);
+	}
+
+	SGL.Scene.prototype.appendTo = function(element) {
+		if (!(element instanceof Node)) {
+			console.log("cannot append scene to " + element + " of type: " + typeof element);
+			return;
+		}
+		element.appendChild(this.canvas);
+	}
+})(window.SGL = window.SGL || {});

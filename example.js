@@ -1,64 +1,59 @@
-var screenData;
 var img;
-var buffer;
+var scene = new SGL.Scene("myScene", 400, 400);
+scene.appendTo(document.body);
+var screenData = scene.getScreenBuffer();
 
-function preload() {
-	return new Promise((resolve, reject) => {
-		loadImage("test.png", 600, 400)
-			.then(result => {
-				img = result;
-				return getPixelBuffer(result);
-			}).then(result => {
-				buffer = result
-				resolve();
-			});
-	});
+SGL.loadImage("test.png").then(image => {
+	img = image
+});
+
+function userKeyPressed(e) {
+	if (e.key === "a") {
+		console.log("a is pressed");
+	}
 }
 
-function start() {
-	createCanvas(600, 400);
-	screenData = getScreenBuffer();
+function userKeyReleased(e) {
+	if (e.key === "a") {
+		console.log("a is released");
+	}
 }
 
-function draw() {
-	context.fillRect(0, 0, canvas.width, canvas.height);
-	if (mouseIsDown("left")) console.log("LEFT IS DOWN");
-	if (mouseIsDown("middle")) console.log("MIDDLE IS DOWN");
-	if (keyIsDown("a")) console.log("A IS DOWN");
-	if (keyIsDown("s")) console.log("S IS DOWN");
-	if (keyIsDown("d")) console.log("D IS DOWN");
+function userMousePressed(e) {
+	if (e.button === SGL.mouseTypes.left) {
+		console.log("this button is pressed");
+	}
+}
+
+function userMouseReleased(e) {
+	if (e.button === SGL.mouseTypes.left) {
+		console.log("this button is released");
+	}
+}
+
+function loop() {
+	scene.renderer.fillRect(0, 0, scene.canvas.width, scene.canvas.height);
+	if (SGL.keyIsDown("a")) console.log("a is down");
+	if (SGL.mouseIsDown("left")) console.log("left is down");
+	if (SGL.mouseLocation === scene.canvas) console.log(scene.mouseX, scene.mouseY);
 	for (let i = 0; i < screenData.length; i += 4) {
-		let x = i / 4 % canvas.width;
-		let y = i / 4 / canvas.width;
+		let x = i / 4 % scene.canvas.width;
+		let y = i / 4 / scene.canvas.width;
 		screenData[i + 0] = x; // R value
 		screenData[i + 1] = y; // G value
 		screenData[i + 2] = 100; // B value
 		screenData[i + 3] = 255; // A value
 	}
-	setScreenBuffer(screenData);
+	scene.setScreenBuffer(screenData);
 }
 
-function mousePressed(e) {
-	if (e.button === mouseTypes.left) console.log("LEFT IS PRESSED");
-	if (e.button === mouseTypes.middle) console.log("MIDDLE IS PRESSED");
+function onWheel(e) {
+	console.log(e.deltaY);
 }
 
-function mouseReleased(e) {
-	if (e.button === mouseTypes.left) console.log("LEFT IS RELEASED");
-	if (e.button === mouseTypes.middle) console.log("MIDDLE IS RELEASED");
-}
-
-function keyPressed(e) {
-	if (e.key === "a") console.log("A IS PRESSED")
-}
-
-function keyReleased(e) {
-	if (e.key === "a") {
-		console.log("A IS RELEASED");
-		aPressed = false;
-	}
-}
-
-function mouseWheel(e) {
-
-}
+SGL.addEventListener("keypressed", userKeyPressed);
+SGL.addEventListener("keyreleased", userKeyReleased);
+SGL.addEventListener("mousepressed", userMousePressed);
+SGL.addEventListener("mousereleased", userMouseReleased);
+SGL.addEventListener("update", loop);
+SGL.addEventListener("wheel", onWheel);
