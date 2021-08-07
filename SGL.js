@@ -224,44 +224,49 @@
 		}
 	}
 
-	function mouseMoveScene(e) {
-		this.mouseX = e.offsetX;
-		this.mouseY = e.offsetY;
-	}
+	SGL.Scene = (function() {
 
-	SGL.Scene = function(id, width, height) {
-		this.canvas = document.createElement("canvas");
-
-		if (id) this.canvas.id = id;
-		if (width) this.canvas.width = width;
-		if (height) this.canvas.height = height;
-
-		this.renderer = this.canvas.getContext("2d");
-
-		this.mouseX;
-		this.mouseY;
-
-		this.canvas.addEventListener("mousemove", (e) => mouseMoveScene.call(this, e));
-
-		scenes.push(this);
-	}
-
-	SGL.Scene.prototype.getScreenBuffer = function() {
-		return this.renderer.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
-	}
-
-	SGL.Scene.prototype.setScreenBuffer = function(buffer, x = 0, y = 0, dx = 0, dy = 0, dw, dh) {
-		var newImageData = new ImageData(buffer, this.canvas.width);
-		dw = dw || this.canvas.width;
-		dh = dh || this.canvas.height;
-		this.renderer.putImageData(newImageData, x, y, dx, dy, dw, dh);
-	}
-
-	SGL.Scene.prototype.appendTo = function(element) {
-		if (!(element instanceof Node)) {
-			console.log("cannot append scene to " + element + " of type: " + typeof element);
-			return;
+		function mouseMoveScene(e) {
+			this.mouseX = e.offsetX;
+			this.mouseY = e.offsetY;
 		}
-		element.appendChild(this.canvas);
-	}
+
+		function Scene (id, width, height) {
+			this.canvas = document.createElement("canvas");
+
+			if (id) this.canvas.id = id;
+			if (width) this.canvas.width = width;
+			if (height) this.canvas.height = height;
+
+			this.renderer = this.canvas.getContext("2d");
+
+			this.mouseX;
+			this.mouseY;
+
+			this.canvas.addEventListener("mousemove", (e) => mouseMoveScene.call(this, e));
+
+			scenes.push(this);
+		}
+
+		Scene.prototype.getScreenBuffer = function() {
+			return this.renderer.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
+		}
+
+		Scene.prototype.setScreenBuffer = function(buffer, x = 0, y = 0, dx = 0, dy = 0, dw, dh) {
+			var newImageData = new ImageData(buffer, this.canvas.width);
+			dw = dw || this.canvas.width;
+			dh = dh || this.canvas.height;
+			this.renderer.putImageData(newImageData, x, y, dx, dy, dw, dh);
+		}
+
+		Scene.prototype.appendTo = function(element) {
+			if (!(element instanceof Node)) {
+				console.log("cannot append scene to " + element + " of type: " + typeof element);
+				return;
+			}
+			element.appendChild(this.canvas);
+		}
+		return Scene;
+	})();
+
 })(window.SGL = window.SGL || {});

@@ -5,6 +5,8 @@ var screenData = scene.getScreenBuffer();
 
 SGL.loadImage("test.png").then(image => {
 	img = image
+}).catch(error => {
+	console.log(error);
 });
 
 function userKeyPressed(e) {
@@ -31,11 +33,12 @@ function userMouseReleased(e) {
 	}
 }
 
+var oldX, oldY;
 function loop() {
 	scene.renderer.fillRect(0, 0, scene.canvas.width, scene.canvas.height);
 	if (SGL.keyIsDown("a")) console.log("a is down");
 	if (SGL.mouseIsDown("left")) console.log("left is down");
-	if (SGL.mouseLocation === scene.canvas) console.log(scene.mouseX, scene.mouseY);
+	if (SGL.mouseLocation === scene.canvas && (scene.mouseX !== oldX || scene.mouseY !== oldY)) console.log(scene.mouseX, scene.mouseY);
 	for (let i = 0; i < screenData.length; i += 4) {
 		let x = i / 4 % scene.canvas.width;
 		let y = i / 4 / scene.canvas.width;
@@ -45,6 +48,8 @@ function loop() {
 		screenData[i + 3] = 255; // A value
 	}
 	scene.setScreenBuffer(screenData);
+	oldX = scene.mouseX;
+	oldY = scene.mouseY;
 }
 
 function onWheel(e) {
