@@ -231,6 +231,7 @@
 			this.mouseY = e.offsetY;
 		}
 
+		// add check for "this" to see if user used new keyword
 		function Scene (id, width, height) {
 			this.canvas = document.createElement("canvas");
 
